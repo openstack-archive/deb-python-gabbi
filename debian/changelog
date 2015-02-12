@@ -1,0 +1,5 @@
+python-gabbi (0.7.1-1) unstable; urgency=medium
+
+  * Initial release. (Closes: #778233)
+
+ -- Thomas Goirand <zigo@debian.org>  Thu, 12 Feb 2015 14:59:20 +0100
