@@ -10,6 +10,9 @@ export OSLO_PACKAGE_VERSION=$(VERSION)
 
 UNIT_TEST_BLACKLIST = test_intercept_backref_post_.*_json.test_request.*|test_intercept_google_.*.test_request.*|test_intercept_regex_regex_test.test_reques.*|test_intercept_self_inheritance_of_defaults.test_request.*|test_intercept_self_bogus_method.test_request.*|test_intercept_self_simple_post.test_request.*|test_intercept_self_use_prior_location.test_request.*|test_intercept_self_get_ssl_page.test_request.*|test_live_google_.*.test_request.*|test_live_google_follow_redirects.test_request.*
 
+export http_proxy=127.0.0.1:9
+export https_proxy=127.0.0.1:9
+
 %:
 	dh $@ --buildsystem=python_distutils --with python2,python3,sphinxdoc
 
