@@ -7,26 +7,27 @@ Build-Depends: debhelper (>= 9),
                dh-python,
                openstack-pkg-tools,
                python-all (>= 2.6.6-3~),
+               python-pbr,
                python-setuptools,
                python-sphinx,
                python3-all,
-               python3-setuptools
-Build-Depends-Indep: python-httplib2,
+               python3-pbr,
+               python3-setuptools,
+Build-Depends-Indep: python-coverage (>= 3.6),
+                     python-httplib2,
                      python-jsonpath-rw,
-                     python-pbr,
                      python-six (>= 1.7.0),
                      python-testtools,
                      python-wsgi-intercept,
                      python-yaml,
                      python3-httplib2,
                      python3-jsonpath-rw,
-                     python3-pbr,
                      python3-six (>= 1.7.0),
                      python3-testtools,
                      python3-wsgi-intercept,
                      python3-yaml,
                      subunit,
-                     testrepository
+                     testrepository,
 Standards-Version: 3.9.6
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/python-gabbi.git
 Vcs-Git: git://anonscm.debian.org/openstack/python-gabbi.git
@@ -43,7 +44,7 @@ Depends: python-httplib2,
          python-wsgi-intercept,
          python-yaml,
          ${misc:Depends},
-         ${python:Depends}
+         ${python:Depends},
 Suggests: python-gabbi-doc
 Description: declarative HTTP testing library - Python 2.x
  Gabbi is a tool for running HTTP tests where requests and responses are
@@ -85,7 +86,7 @@ Depends: python3-httplib2,
          python3-wsgi-intercept,
          python3-yaml,
          ${misc:Depends},
-         ${python3:Depends}
+         ${python3:Depends},
 Suggests: python-gabbi-doc
 Description: declarative HTTP testing library - Python 3.x
  Gabbi is a tool for running HTTP tests where requests and responses are
