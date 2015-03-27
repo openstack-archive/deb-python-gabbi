@@ -29,7 +29,6 @@ from gabbi import driver
 from gabbi import fixture
 from gabbi import simple_wsgi
 
-
 TESTS_DIR = 'gabbits_intercept'
 
 
@@ -43,8 +42,15 @@ class TestFixtureTwo(fixture.GabbiFixture):
     pass
 
 
+# Incorporate the SkipAllFixture into this namespace so it can be used
+# by tests (c.f. skipall.yaml).
+SkipAllFixture = fixture.SkipAllFixture
+
+
 def load_tests(loader, tests, pattern):
     """Provide a TestSuite to the discovery process."""
+    # Set and environment variable for one of the tests.
+    os.environ['GABBI_TEST_URL'] = 'takingnames'
     test_dir = os.path.join(os.path.dirname(__file__), TESTS_DIR)
     return driver.build_tests(test_dir, loader, host=None,
                               intercept=simple_wsgi.SimpleWsgi,
