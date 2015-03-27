@@ -1,6 +1,9 @@
 python-gabbi (0.12.1-1) experimental; urgency=medium
 
   * New upstream release.
+  * Black list 2 new tests:
+    gabbi.driver.test_intercept_self_get_location_from_headers.test_request
+    gabbi.driver.test_intercept_self_confirm_environ.test_request
 
  -- Thomas Goirand <zigo@debian.org>  Fri, 27 Mar 2015 19:48:19 +0100
 
