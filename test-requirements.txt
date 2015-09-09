@@ -1,3 +1,6 @@
+mock
 tox
 testrepository
 coverage
+hacking
+sphinx

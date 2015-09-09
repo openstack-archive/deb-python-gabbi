@@ -1,8 +1,4 @@
 #
-# Copyright 2014, 2015 Red Hat. All Rights Reserved.
-#
-# Author: Chris Dent <chdent@redhat.com>
-#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -24,6 +20,7 @@ import json
 from six.moves.urllib import parse as urlparse
 
 
+CURRENT_POLL = 0
 METHODS = ['GET', 'PUT', 'POST', 'DELETE', 'PATCH']
 
 
@@ -31,25 +28,35 @@ class SimpleWsgi(object):
     """A simple wsgi application to use in tests."""
 
     def __call__(self, environ, start_response):
+        global METHODS
+        global CURRENT_POLL
+
         request_method = environ['REQUEST_METHOD'].upper()
         query_data = urlparse.parse_qs(environ.get('QUERY_STRING', ''))
         request_url = environ.get('REQUEST_URI',
                                   environ.get('RAW_URI', 'unknown'))
+        path_info = environ.get('PATH_INFO', '')
         accept_header = environ.get('HTTP_ACCEPT')
         content_type_header = environ.get('CONTENT_TYPE', '')
 
-        request_url = self._fully_qualify(environ, request_url)
+        full_request_url = self._fully_qualify(environ, request_url)
 
         if accept_header:
             response_content_type = accept_header
         else:
-            response_content_type = 'application/json'
+            # JSON doesn't need a charset but we throw one in here
+            # to exercise the decoding code
+            response_content_type = (
+                'application/json ; charset=utf-8 ; stop=no')
 
         headers = [
             ('X-Gabbi-method', request_method),
             ('Content-Type', response_content_type),
-            ('X-Gabbi-url', request_url),
+            ('X-Gabbi-url', full_request_url),
         ]
+
+        if request_method == 'DIE':
+            raise Exception('because you asked me to')
 
         if request_method not in METHODS:
             headers.append(
@@ -69,7 +76,21 @@ class SimpleWsgi(object):
                         query_data.update(body_data)
                     else:
                         query_data = body_data
-            headers.append(('Location', request_url))
+            headers.append(('Location', full_request_url))
+
+        if path_info.startswith('/poller'):
+            if CURRENT_POLL == 0:
+                CURRENT_POLL = int(query_data.get('count', [5])[0])
+                start_response('400 Bad Reqest', [])
+                return []
+            else:
+                CURRENT_POLL -= 1
+                if CURRENT_POLL > 0:
+                    start_response('400 Bad Reqest', [])
+                    return []
+                else:
+                    CURRENT_POLL = 0
+            # fall through if we've ended the loop
 
         start_response('200 OK', headers)
 

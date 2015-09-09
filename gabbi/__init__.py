@@ -1,6 +1,3 @@
-# Copyright 2014, 2015 Red Hat
-#
-# Authors: Chris Dent <chdent@redhat.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -15,4 +12,4 @@
 # under the License.
 """See gabbi.driver and gabbbi.case."""
 
-__version__ = '0.12.1'
+__version__ = '1.6.1'

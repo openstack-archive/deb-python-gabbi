@@ -1,6 +1,3 @@
-# Copyright 2014, 2015 Red Hat
-#
-# Authors: Chris Dent <chdent@redhat.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -33,19 +30,27 @@ class GabbiFixtureError(Exception):
 class GabbiFixture(object):
     """A context manager that operates as a fixture.
 
-    Subclasses must implement start_fixture and stop_fixture, each of which
-    contain the logic for stopping and starting whatever the fixture is.
-    What a fixture is is left as an exercise for the implementor.
+    Subclasses must implement ``start_fixture`` and ``stop_fixture``, each
+    of which contain the logic for stopping and starting whatever the
+    fixture is. What a fixture is is left as an exercise for the implementor.
 
-    These context managers will be nested so any actually work needs to
-    happen in `start_fixture` and `stop_fixture` and not in ``__init__``.
+    These context managers will be nested so any actual work needs to
+    happen in ``start_fixture`` and ``stop_fixture`` and not in ``__init__``.
     Otherwise exception handling will not work properly.
     """
+
+    def __init__(self):
+        self.exc_type = None
+        self.exc_value = None
+        self.traceback = None
 
     def __enter__(self):
         self.start_fixture()
 
     def __exit__(self, exc_type, value, traceback):
+        self.exc_type = exc_type
+        self.exc_value = value
+        self.traceback = traceback
         self.stop_fixture()
 
     def start_fixture(self):
@@ -62,13 +67,16 @@ class InterceptFixture(GabbiFixture):
 
     httplib2_intercept.install()
 
-    def __init__(self, host, port, app):
+    def __init__(self, host, port, app, prefix):
+        super(InterceptFixture, self).__init__()
         self.host = host
         self.port = port
         self.app = app
+        self.script_name = prefix or ''
 
     def start_fixture(self):
-        wsgi_intercept.add_wsgi_intercept(self.host, self.port, self.app)
+        wsgi_intercept.add_wsgi_intercept(self.host, self.port, self.app,
+                                          script_name=self.script_name)
 
     def stop_fixture(self):
         wsgi_intercept.remove_wsgi_intercept(self.host, self.port)

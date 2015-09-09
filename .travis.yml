@@ -1,3 +1,4 @@
+sudo: false
 language: python
 install:
       - pip install tox 
@@ -8,6 +9,12 @@ env:
       - TOXENV=py32
       - TOXENV=py33
       - TOXENV=py34
+      - TOXENV=pypy
+      - TOXENV=pypy3
+      - TOXENV=pep8
+      - TOXENV=py34-failskip
+      - TOXENV=py34-limit
+      - TOXENV=py34-prefix
 
 notifications:
       irc: "chat.freenode.net#gabbi"

@@ -1,20 +1,29 @@
 .. image:: https://travis-ci.org/cdent/gabbi.svg?branch=master
     :target: https://travis-ci.org/cdent/gabbi
 .. image:: https://readthedocs.org/projects/gabbi/badge/?version=latest
-    :target: http://gabbi.readthedocs.org/en/latest/
+    :target: https://gabbi.readthedocs.org/en/latest/
     :alt: Documentation Status
 
-gabbi
+Gabbi
 =====
 
 Gabbi is a tool for running HTTP tests where requests and responses
-are represented in a declarative form.
+are represented in a declarative YAML-based form. See the docs_ for
+more details on features and formats.
 
-It is under active development. See the YAML files for examples of
-working tests and the docs_ for more details on features and
-formats.
+Gabbi is tested with Python 2.7, 3.4 and pypy and pypy3.
 
-.. _docs: http://gabbi.readthedocs.org/
+Tests can be run using `unittest`_ style test runners or from the
+command line with a `gabbi-run`_ script.
+
+There is a `gabbi-demo`_ repository which provides a tutorial via
+its commit history. The demo builds a simple API using gabbi to
+facilitate test driven development.
+
+.. _docs: https://gabbi.readthedocs.org/
+.. _gabbi-demo: https://github.com/cdent/gabbi-demo
+.. _unittest: https://gabbi.readthedocs.org/en/latest/example.html#loader
+.. _gabbi-run: https://gabbi.readthedocs.org/en/latest/runner.html
 
 Purpose
 -------
@@ -50,7 +59,7 @@ To run the built in tests (the YAML files are in the directories
 ``gabbi/gabbits_*`` and loaded by the file ``gabbi/test_*.py``),
 you can use ``tox``::
 
-    tox -epep8,py27,py33
+    tox -epep8,py27,py34
 
 Or if you have the dependencies installed (or a warmed up
 virtualenv) you can run the tests by hand and exit on the first

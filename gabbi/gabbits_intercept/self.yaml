@@ -4,10 +4,18 @@
 
 defaults:
     url: /cow?alpha=1
+    request_headers:
+        x-random-header: ya
 
 tests:
 - name: get simple page
   url: /
+  verbose: True
+
+- name: get simple page xfail uxsuccess
+  xfail: true
+  url: /
+  verbose: True
 
 - name: inheritance of defaults
   response_headers:
@@ -19,11 +27,11 @@ tests:
 
 - name: bogus method
   url: /
-  method: DIE
+  method: UNREAL
   status: 405
   response_headers:
       allow: GET, PUT, POST, DELETE, PATCH
-      x-gabbi-method: DIE
+      x-gabbi-method: UNREAL
       x-gabbi-url: $SCHEME://$NETLOC/
 
 - name: query returned
@@ -92,3 +100,72 @@ tests:
   url: /$ENVIRON['GABBI_TEST_URL']
   response_headers:
       x-gabbi-url: $SCHEME://$NETLOC/takingnames
+
+- name: confirm environ no key fail
+  desc: this confirms that no key leads to failure rather than error
+  xfail: true
+  url: /$ENVIRON['1385F1EB-DC5C-4A95-8928-58673FB272DC']
+
+- name: test pluggable response
+  url: /foo?alpha=1
+  response_test:
+      - 'COW"alpha": ["1"]'
+      - COWAnother line
+
+- name: fail pluggable response
+  desc: this one will fail because COW is not removable
+  url: /foo?alpha=1
+  xfail: true
+  response_test:
+      - 'CO"alpha": ["1"]'
+
+- name: test exception wrapper
+  desc: simple wsgi will raise exception
+  url: /
+  xfail: true
+  method: DIE
+
+- name: non json response failure
+  desc: asking for json in a non json test should be failure not error
+  url: /
+  xfail: true
+  method: GET
+  request_headers:
+      accept: text/plain
+  response_json_paths:
+      $.data: hello
+
+- name: json derived content type
+  desc: +json types should work for json paths
+  url: /?data=hello
+  method: GET
+  request_headers:
+      accept: application/vnd.complex+json
+  response_json_paths:
+      $.data[0]: hello
+
+- name: json home content type is json
+  url: /?data=hello
+  method: GET
+  request_headers:
+      accept: application/json-home
+  response_json_paths:
+      $.data[0]: hello
+
+- name: json content type detection case insensitive
+  url: /?data=hello
+  method: GET
+  request_headers:
+      accept: ApPlIcAtIoN/JsOn-hOmE
+  response_json_paths:
+      $.data[0]: hello
+
+- name: xml derived content type
+  desc: +xml types should not work for json paths
+  xfail: true
+  url: /?data=hello
+  method: GET
+  request_headers:
+      accept: application/vnd.complex+xml
+  response_json_paths:
+      $.data[0]: hello

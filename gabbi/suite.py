@@ -1,6 +1,3 @@
-# Copyright 2014, 2015 Red Hat
-#
-# Authors: Chris Dent <chdent@redhat.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -51,6 +48,7 @@ class GabbiSuite(suite.TestSuite):
             fixtures = first_test.fixtures
             host = first_test.host
             port = first_test.port
+            prefix = first_test.prefix
             intercept = first_test.intercept
 
             # Unbind a passed in WSGI application. During the
@@ -65,7 +63,8 @@ class GabbiSuite(suite.TestSuite):
         try:
             with fixture.nest([fix() for fix in fixtures]):
                 if intercept:
-                    with fixture.InterceptFixture(host, port, intercept):
+                    with fixture.InterceptFixture(host, port, intercept,
+                                                  prefix):
                         result = super(GabbiSuite, self).run(result, debug)
                 else:
                     result = super(GabbiSuite, self).run(result, debug)

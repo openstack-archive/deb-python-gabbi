@@ -1,6 +1,3 @@
-# Copyright 2014, 2015 Red Hat
-#
-# Authors: Chris Dent <chdent@redhat.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -20,17 +17,27 @@ response headers and body. When the test is run an HTTP request is
 made using httplib2. Assertions are made against the reponse.
 """
 
+from __future__ import print_function
+
+import copy
 import functools
 import json
 import os
 import re
 import sys
+import time
+import unittest
+from unittest import case
 
-import jsonpath_rw
+import six
 from six.moves.urllib import parse as urlparse
-from testtools import testcase
+import wsgi_intercept
 
+from gabbi import __version__
+from gabbi import json_parser
 from gabbi import utils
+
+MAX_CHARS_OUTPUT = 2000
 
 REPLACERS = [
     'SCHEME',
@@ -46,18 +53,18 @@ REPLACERS = [
 BASE_TEST = {
     'name': '',
     'desc': '',
+    'verbose': False,
     'ssl': False,
     'redirects': False,
     'method': 'GET',
     'url': '',
     'status': '200',
     'request_headers': {},
-    'response_headers': {},
-    'response_strings': [],
-    'response_json_paths': {},
+    'query_parameters': {},
     'data': '',
     'xfail': False,
     'skip': '',
+    'poll': {},
 }
 
 
@@ -69,14 +76,21 @@ def potentialFailure(func):
             try:
                 func(self)
             except Exception:
-                raise testcase._ExpectedFailure(sys.exc_info())
-            raise testcase._UnexpectedSuccess
+                if hasattr(case, '_ExpectedFailure'):
+                    raise case._ExpectedFailure(sys.exc_info())
+                else:
+                    self._addExpectedFailure(self.result, sys.exc_info())
+            else:
+                if hasattr(self, '_addUnexpectedSuccess'):
+                    self._addUnexpectedSuccess(self.result)
+                else:
+                    raise case._UnexpectedSuccess
         else:
             func(self)
     return wrapper
 
 
-class HTTPTestCase(testcase.TestCase):
+class HTTPTestCase(unittest.TestCase):
     """Encapsulate a single HTTP request as a TestCase.
 
     If the test is a member of a sequence of requests, ensure that prior
@@ -86,6 +100,9 @@ class HTTPTestCase(testcase.TestCase):
     tearDown are only run once.
     """
 
+    response_handlers = []
+    base_test = copy.copy(BASE_TEST)
+
     def setUp(self):
         if not self.has_run:
             super(HTTPTestCase, self).setUp()
@@ -94,6 +111,11 @@ class HTTPTestCase(testcase.TestCase):
         if not self.has_run:
             super(HTTPTestCase, self).tearDown()
         self.has_run = True
+
+    def run(self, result=None):
+        """Store the current result handler on this test."""
+        self.result = result
+        super(HTTPTestCase, self).run(result)
 
     @potentialFailure
     def test_request(self):
@@ -123,7 +145,12 @@ class HTTPTestCase(testcase.TestCase):
             method = '_%s_replace' % replacer.lower()
             try:
                 if template in message:
-                    message = getattr(self, method)(message)
+                    try:
+                        message = getattr(self, method)(message)
+                    except (KeyError, AttributeError, ValueError) as exc:
+                        raise AssertionError(
+                            'unable to replace %s in %s, data unavailable: %s'
+                            % (template, message, exc))
             except TypeError:
                 # Message is not a string
                 pass
@@ -141,25 +168,27 @@ class HTTPTestCase(testcase.TestCase):
             raise ServerError(self.output)
 
         self._test_status(test['status'], response['status'])
-        self._test_headers(test['response_headers'], response)
 
-        # Compare strings in response body
-        for expected in test['response_strings']:
-            expected = self.replace_template(expected)
-            self.assertIn(expected, self.output)
+        for handler in self.response_handlers:
+            handler(self)
 
-        # Test json_paths against json data
-        for path in test['response_json_paths']:
-            match = self._extract_json_path_value(self.json_data, path)
-            expected = self.replace_template(
-                test['response_json_paths'][path])
-            self.assertEqual(expected, match, 'Unable to match %s as %s'
-                             % (path, expected))
+    def _clean_query_value(self, value):
+        """Clean up a single query from query_parameters."""
+        value = self.replace_template(value)
+        # stringify ints in Python version independent fashion
+        value = '%s' % value
+        value = value.encode('UTF-8')
+        return value
 
     def _environ_replace(self, message):
         """Replace an indicator in a message with the environment value."""
-        return re.sub(r"\$ENVIRON\['([^']+)'\]",
-                      self._environ_replacer, message)
+        value = re.sub(self._replacer_regex('ENVIRON'),
+                       self._environ_replacer, message)
+        if value == "False":
+            return False
+        if value == "True":
+            return True
+        return value
 
     @staticmethod
     def _environ_replacer(match):
@@ -167,16 +196,16 @@ class HTTPTestCase(testcase.TestCase):
 
         Let KeyError raise if variable not present.
         """
-        environ_name = match.group(1)
+        environ_name = match.group('arg')
         return os.environ[environ_name]
 
     @staticmethod
-    def _extract_json_path_value(data, path):
+    def extract_json_path_value(data, path):
         """Extract the value at JSON Path path from the data.
 
         The input data is a Python datastructre, not a JSON string.
         """
-        path_expr = jsonpath_rw.parse(path)
+        path_expr = json_parser.parse(path)
         matches = [match.value for match in path_expr.find(data)]
         try:
             return matches[0]
@@ -188,18 +217,18 @@ class HTTPTestCase(testcase.TestCase):
         """Replace a header indicator in a message with that headers value from
         the prior request.
         """
-        return re.sub(r"\$HEADERS\['([^']+)'\]",
+        return re.sub(self._replacer_regex('HEADERS'),
                       self._header_replacer, message)
 
     def _header_replacer(self, match):
         """Replace a regex match with the value of a prior header."""
-        header_key = match.group(1)
+        header_key = match.group('arg')
         return self.prior.response[header_key.lower()]
 
     def _json_replacer(self, match):
         """Replace a regex match with the value of a JSON Path."""
-        path = match.group(1)
-        return str(self._extract_json_path_value(self.prior.json_data, path))
+        path = match.group('arg')
+        return str(self.extract_json_path_value(self.prior.json_data, path))
 
     def _location_replace(self, message):
         """Replace $LOCATION in a message.
@@ -216,7 +245,10 @@ class HTTPTestCase(testcase.TestCase):
 
     def _netloc_replace(self, message):
         """Replace $NETLOC with the current host and port."""
-        return message.replace('$NETLOC', self.netloc)
+        netloc = self.netloc
+        if self.prefix:
+            netloc = '%s%s' % (netloc, self.prefix)
+        return message.replace('$NETLOC', netloc)
 
     def _parse_url(self, url, ssl=False):
         """Create a url from test data.
@@ -227,40 +259,84 @@ class HTTPTestCase(testcase.TestCase):
         Scheme and netloc are saved for later use in comparisons.
         """
         parsed_url = urlparse.urlsplit(url)
-        url_scheme = parsed_url[0]
         scheme = 'http'
         netloc = self.host
+        query_params = self.test_data['query_parameters']
 
-        if not url_scheme:
-            if self.port:
+        if not parsed_url.scheme:
+            if (self.port
+                    and not (int(self.port) == 443 and ssl)
+                    and not (int(self.port) == 80 and not ssl)):
                 netloc = '%s:%s' % (self.host, self.port)
+
             if ssl:
                 scheme = 'https'
-            full_url = urlparse.urlunsplit((scheme, netloc, parsed_url[2],
-                                            parsed_url[3], ''))
+
+            path = parsed_url[2]
+            if self.prefix:
+                path = '%s%s' % (self.prefix, path)
+
+            if query_params:
+                encoded_query_params = {}
+                for param, value in query_params.items():
+                    # isinstance used because we can iter a string
+                    if isinstance(value, list):
+                        encoded_query_params[param] = [
+                            self._clean_query_value(subvalue)
+                            for subvalue in value]
+                    else:
+                        encoded_query_params[param] = (
+                            self._clean_query_value(value))
+
+                query_string = urlparse.urlencode(
+                    encoded_query_params, doseq=True)
+                if parsed_url.query:
+                    query_string = '&'.join([parsed_url.query, query_string])
+            else:
+                query_string = parsed_url.query
+
+            full_url = urlparse.urlunsplit((scheme, netloc, path,
+                                            query_string, ''))
             self.scheme = scheme
             self.netloc = netloc
         else:
             full_url = url
-            self.scheme = url_scheme
+            self.scheme = parsed_url.scheme
             self.netloc = parsed_url[1]
 
         return full_url
 
+    @staticmethod
+    def _replacer_regex(key):
+        return r"\$%s\[(?P<quote>['\"])(?P<arg>.+?)(?P=quote)\]" % key
+
     def _response_replace(self, message):
         """Replace a JSON Path from the prior request with a value."""
-        return re.sub(r"\$RESPONSE\['([^']+)'\]",
+        return re.sub(self._replacer_regex('RESPONSE'),
                       self._json_replacer, message)
 
     def _run_request(self, url, method, headers, body):
-        """Run the http request and decode output."""
+        """Run the http request and decode output.
 
-        response, content = self.http.request(
-            url,
-            method=method,
-            headers=headers,
-            body=body
-        )
+        The call to make the request will catch a WSGIAppError from
+        wsgi_intercept so that the real traceback from a catastrophic
+        error in the intercepted app can be examined.
+        """
+
+        if 'user-agent' not in (key.lower() for key in headers):
+            headers['user-agent'] = "gabbi/%s (Python httplib2)" % __version__
+
+        try:
+            response, content = self.http.request(
+                url,
+                method=method,
+                headers=headers,
+                body=body
+            )
+        except wsgi_intercept.WSGIAppError as exc:
+            # Extract and re-raise the wrapped exception.
+            six.reraise(exc.exception_type, exc.exception_value,
+                        exc.traceback)
 
         # Set headers and location attributes for follow on requests
         self.response = response
@@ -268,10 +344,14 @@ class HTTPTestCase(testcase.TestCase):
             self.location = response['location']
 
         # Decode and store response
-        decoded_output = utils.decode_content(response, content)
+        decoded_output = utils.decode_response_content(response, content)
+        self.content_type = response.get('content-type', '').lower()
         if (decoded_output and
-                'application/json' in response.get('content-type', '')):
+                ('application/json' in self.content_type or
+                 '+json' in self.content_type)):
             self.json_data = json.loads(decoded_output)
+        else:
+            self.json_data = None
         self.output = decoded_output
 
     def _run_test(self):
@@ -297,8 +377,27 @@ class HTTPTestCase(testcase.TestCase):
         if test['redirects']:
             self.http.follow_redirects = True
 
-        self._run_request(full_url, method, headers, body)
-        self._assert_response()
+        if test['poll']:
+            count = test['poll'].get('count', 1)
+            delay = test['poll'].get('delay', 1)
+            failure = None
+            while count:
+                try:
+                    self._run_request(full_url, method, headers, body)
+                    self._assert_response()
+                    failure = None
+                    break
+                except (AssertionError, utils.ConnectionRefused) as exc:
+                    failure = exc
+
+                count -= 1
+                time.sleep(delay)
+
+            if failure:
+                raise failure
+        else:
+            self._run_request(full_url, method, headers, body)
+            self._assert_response()
 
     def _scheme_replace(self, message):
         """Replace $SCHEME with the current protocol."""
@@ -324,33 +423,6 @@ class HTTPTestCase(testcase.TestCase):
             data = json.dumps(data)
         return self.replace_template(data)
 
-    def _test_headers(self, headers, response):
-        """Compare expected headers with actual headers.
-
-        If a header value is wrapped in ``/`` it is treated as a raw
-        regular expression.
-        """
-        for header in headers:
-            header_value = self.replace_template(headers[header])
-
-            try:
-                response_value = response[header]
-            except KeyError:
-                # Reform KeyError to something more debuggable.
-                raise KeyError("'%s' header not available in response keys: %s"
-                               % (header, response.keys()))
-
-            if header_value.startswith('/') and header_value.endswith('/'):
-                header_value = header_value.strip('/').rstrip('/')
-                self.assertRegexpMatches(
-                    response_value, header_value,
-                    'Expect header %s to match /%s/, got %s' %
-                    (header, header_value, response_value))
-            else:
-                self.assertEqual(header_value, response[header],
-                                 'Expect header %s with value %s, got %s' %
-                                 (header, header_value, response[header]))
-
     def _test_status(self, expected_status, observed_status):
         """Confirm we got the expected status.
 
@@ -362,7 +434,37 @@ class HTTPTestCase(testcase.TestCase):
             statii = [stat.strip() for stat in expected_status.split('||')]
         else:
             statii = [expected_status.strip()]
-        self.assertIn(observed_status, statii)
+
+        self.assert_in_or_print_output(observed_status, statii)
+
+    def assert_in_or_print_output(self, expected, iterable):
+        if utils.not_binary(self.content_type):
+            if expected in iterable:
+                return
+
+            if self.json_data:
+                full_response = json.dumps(self.json_data, indent=2,
+                                           separators=(',', ': '))
+            else:
+                full_response = self.output
+
+            max_chars = os.getenv('GABBIT_MAX_CHARS_OUTPUT', MAX_CHARS_OUTPUT)
+            response = full_response[0:max_chars]
+            is_truncated = (len(response) != len(full_response))
+
+            if iterable == self.output:
+                msg = "'%s' not found in %s%s" % (
+                    expected, response,
+                    '\n...truncated...' if is_truncated else ''
+                )
+            else:
+                msg = "'%s' not found in %s, %sresponse:\n%s" % (
+                    expected, iterable,
+                    'truncated ' if is_truncated else '',
+                    response)
+            self.fail(msg)
+        else:
+            self.assertIn(expected, iterable)
 
 
 class ServerError(Exception):
