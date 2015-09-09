@@ -13,15 +13,21 @@ Build-Depends: debhelper (>= 9),
                python3-all,
                python3-pbr,
                python3-setuptools,
-Build-Depends-Indep: python-coverage,
+               python-sphinx,
+Build-Depends-Indep: python-colorama,
+                     python-coverage,
+                     python-hacking,
                      python-httplib2,
                      python-jsonpath-rw,
+                     python-mock,
                      python-six,
                      python-testtools,
                      python-wsgi-intercept,
                      python-yaml,
+                     python3-colorama,
                      python3-httplib2,
                      python3-jsonpath-rw,
+                     python3-mock,
                      python3-six,
                      python3-testtools,
                      python3-wsgi-intercept,
@@ -36,7 +42,8 @@ Homepage: https://github.com/cdent/gabbi
 Package: python-gabbi
 Architecture: all
 Pre-Depends: dpkg (>= 1.15.6~)
-Depends: python-httplib2,
+Depends: python-colorama,
+         python-httplib2,
          python-jsonpath-rw,
          python-pbr,
          python-six,
@@ -78,7 +85,8 @@ Description: declarative HTTP testing library - Python 2.x
 Package: python3-gabbi
 Architecture: all
 Pre-Depends: dpkg (>= 1.15.6~)
-Depends: python3-httplib2,
+Depends: python3-colorama,
+         python3-httplib2,
          python3-jsonpath-rw,
          python3-pbr,
          python3-six (>= 1.7.0),
