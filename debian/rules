@@ -26,6 +26,8 @@ override_dh_install:
 			--root $(CURDIR)/debian/python3-gabbi; \
 	done
 	rm -rf $(CURDIR)/debian/python*-gabbi/usr/lib/python*/dist-packages/*.pth
+	mv $(CURDIR)/debian/python-gabbi/usr/bin/gabbi-run $(CURDIR)/debian/python-gabbi/usr/bin/python2-gabbi-run
+	mv $(CURDIR)/debian/python3-gabbi/usr/bin/gabbi-run $(CURDIR)/debian/python3-gabbi/usr/bin/python3-gabbi-run
 
 #override_dh_auto_test:
 #ifeq (,$(findstring nocheck, $(DEB_BUILD_OPTIONS)))

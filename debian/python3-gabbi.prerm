@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "remove" ] ; then
+	update-alternatives --remove gabbi-run /usr/bin/python3-gabbi-run
+fi
+
+#DEBHELPER#
+
+exit 0

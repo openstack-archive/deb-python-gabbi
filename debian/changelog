@@ -3,6 +3,7 @@ python-gabbi (1.6.1-1) experimental; urgency=medium
   * New upstream release.
   * Fixed (build-)depends for this release.
   * Do not run unit tests as it's broken and requires internet.
+  * Using update-alternatives to provide /usr/bin/gabbi-run.
 
  -- Thomas Goirand <zigo@debian.org>  Wed, 09 Sep 2015 21:56:14 +0200
 
