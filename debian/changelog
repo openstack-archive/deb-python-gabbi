@@ -1,6 +1,7 @@
 python-gabbi (1.6.1-2) unstable; urgency=medium
 
   * Uploading to unstable.
+  * Fixed watch file.
 
  -- Thomas Goirand <zigo@debian.org>  Thu, 15 Oct 2015 23:01:38 +0000
 
