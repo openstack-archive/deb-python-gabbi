@@ -1,3 +1,10 @@
+python-gabbi (1.12.0-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Fixed (build-)depends for this release.
+
+ -- Thomas Goirand <zigo@debian.org>  Mon, 25 Jan 2016 12:44:06 +0000
+
 python-gabbi (1.6.1-2) unstable; urgency=medium
 
   * Uploading to unstable.
