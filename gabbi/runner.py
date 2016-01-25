@@ -10,11 +10,14 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+"""Implementation of a command-line runner of single gabbi files."""
 
 import argparse
 import sys
 import unittest
 import yaml
+
+from importlib import import_module
 
 from six.moves.urllib import parse as urlparse
 
@@ -63,6 +66,7 @@ def run():
     parser = argparse.ArgumentParser(description='Run gabbi tests from STDIN')
     parser.add_argument(
         'target',
+        nargs='?', default='stub',
         help='A fully qualified URL (with optional path as prefix) '
              'to the primary target or a host and port, : separated'
     )
@@ -74,10 +78,17 @@ def run():
     )
     parser.add_argument(
         '-x', '--failfast',
-        help='Exit on first failure',
-        action='store_true'
+        action='store_true',
+        help='Exit on first failure'
     )
-
+    parser.add_argument(
+        '-r', '--response-handler',
+        nargs='?', default=None,
+        dest='response_handlers',
+        action='append',
+        help='Custom response handler. Should be an import path of the '
+             'form package.module or package.module:class.'
+    )
     args = parser.parse_args()
 
     split_url = urlparse.urlsplit(args.target)
@@ -94,18 +105,46 @@ def run():
         host = target
         port = None
 
-    loader = unittest.defaultTestLoader
-
-    # Initialize the extensions for response handling.
-    for handler in driver.RESPONSE_HANDLERS:
+    # Initialize response handlers.
+    custom_response_handlers = []
+    for import_path in (args.response_handlers or []):
+        for handler in load_response_handlers(import_path):
+            custom_response_handlers.append(handler)
+    for handler in driver.RESPONSE_HANDLERS + custom_response_handlers:
         handler(case.HTTPTestCase)
 
     data = yaml.safe_load(sys.stdin.read())
-    suite = driver.test_suite_from_yaml(loader, 'input', data, '.',
+    loader = unittest.defaultTestLoader
+    suite = driver.test_suite_from_dict(loader, 'input', data, '.',
                                         host, port, None, None,
                                         prefix=prefix)
     result = ConciseTestRunner(verbosity=2, failfast=args.failfast).run(suite)
     sys.exit(not result.wasSuccessful())
+
+
+def load_response_handlers(import_path):
+    """Load and return custom response handlers from the given Python package
+    or module.
+
+    The import path references either a specific response handler class
+    ("package.module:class") or a module that contains one or more response
+    handler classes ("package.module").
+
+    For the latter, the module is expected to contain a
+    ``gabbi_response_handlers`` object, which is either a list of response
+    handler classes or a function returning such a list.
+    """
+    if ":" in import_path:  # package.module:class
+        module_name, handler_name = import_path.rsplit(":", 1)
+        module = import_module(module_name)
+        handler = getattr(module, handler_name)
+        handlers = [handler]
+    else:  # package.module shorthand, expecting gabbi_response_handlers
+        module = import_module(import_path)
+        handlers = module.gabbi_response_handlers
+        if callable(handlers):
+            handlers = handlers()
+    return handlers
 
 
 if __name__ == '__main__':

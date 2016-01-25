@@ -11,6 +11,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+"""TestRunner and TestResult for gabbi-run."""
 
 from unittest import TextTestResult
 from unittest import TextTestRunner
@@ -19,6 +20,11 @@ from gabbi import utils
 
 
 class ConciseTestResult(TextTestResult):
+    """A TextTestResult with simple but useful output.
+
+    If the output is a tty or GABBI_FORCE_COLOR is set in the
+    environment, output will be colorized.
+    """
 
     def __init__(self, stream, descriptions, verbosity):
         super(ConciseTestResult, self).__init__(
@@ -89,9 +95,11 @@ class ConciseTestResult(TextTestResult):
             # err[1] is the args of the exception
             # err[3] is the traceback, not currently used
             self.stream.writeln('%s: %s' % (flavor, self.getDescription(test)))
-            message = str(err[1]).replace('\n', '\\r')
-            self.stream.writeln('\t%s' % message)
+            message = str(err[1])
+            for line in message.splitlines():
+                self.stream.writeln('\t%s' % line)
 
 
 class ConciseTestRunner(TextTestRunner):
+    """A TextTestRunner that uses ConciseTestResult for reporting results."""
     resultclass = ConciseTestResult

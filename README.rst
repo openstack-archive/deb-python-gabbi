@@ -11,7 +11,7 @@ Gabbi is a tool for running HTTP tests where requests and responses
 are represented in a declarative YAML-based form. See the docs_ for
 more details on features and formats.
 
-Gabbi is tested with Python 2.7, 3.4 and pypy and pypy3.
+Gabbi is tested with Python 2.7, 3.4, 3.5 and pypy and pypy3.
 
 Tests can be run using `unittest`_ style test runners or from the
 command line with a `gabbi-run`_ script.
@@ -66,3 +66,8 @@ virtualenv) you can run the tests by hand and exit on the first
 failure::
 
     python -m subunit.run discover -f gabbi | subunit2pyunit
+
+Testing can be limited to individual modules by specifying them
+after the tox invocation::
+
+    tox -epep8,py27,py34 -- test_driver test_handlers

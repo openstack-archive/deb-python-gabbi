@@ -18,11 +18,15 @@ whether the test passes or fails.
 While the default handlers (as described in :doc:`format`) are sufficient for
 most cases, it is possible to register additional custom handlers by passing a
 subclass of :class:`~gabbi.handlers.ResponseHandler` to
-:func:`~gabbi.driver.build_tests`::
+:meth:`~gabbi.driver.build_tests`::
 
     driver.build_tests(test_dir, loader, host=None,
                        intercept=simple_wsgi.SimpleWsgi,
                        response_handlers=[MyResponseHandler])
+
+With ``gabbi-run``, custom handlers can be loaded via the
+``--response-handler`` option -- see
+:meth:`~gabbi.runner.load_response_handlers` for details.
 
 A subclass needs to define at least three things:
 
@@ -38,7 +42,7 @@ A subclass needs to define at least three things:
   * ``test``: The currently active ``HTTPTestCase``
   * ``item``: The current entry if ``test_key_value`` is a
     list, otherwise the key half of the key/value pair at this entry.
-  * ``value``: None if ``test_key_value`` is a list, otherwise the
+  * ``value``: ``None`` if ``test_key_value`` is a list, otherwise the
     value half of the key/value pair at this entry.
 
 Optionally a subclass may also define a ``preprocess`` method which is

@@ -17,8 +17,7 @@ response headers and body. When the test is run an HTTP request is
 made using httplib2. Assertions are made against the reponse.
 """
 
-from __future__ import print_function
-
+from collections import OrderedDict
 import copy
 import functools
 import json
@@ -37,6 +36,7 @@ from gabbi import __version__
 from gabbi import json_parser
 from gabbi import utils
 
+
 MAX_CHARS_OUTPUT = 2000
 
 REPLACERS = [
@@ -48,8 +48,7 @@ REPLACERS = [
     'RESPONSE',
 ]
 
-
-# Empty test from which all others inherit
+# Basic test template determining both valid keys and default values
 BASE_TEST = {
     'name': '',
     'desc': '',
@@ -159,15 +158,7 @@ class HTTPTestCase(unittest.TestCase):
 
     def _assert_response(self):
         """Compare the response with expected data."""
-
-        test = self.test_data
-        response = self.response
-
-        # Never accept a 500
-        if response['status'] == '500':
-            raise ServerError(self.output)
-
-        self._test_status(test['status'], response['status'])
+        self._test_status(self.test_data['status'], self.response['status'])
 
         for handler in self.response_handlers:
             handler(self)
@@ -250,7 +241,7 @@ class HTTPTestCase(unittest.TestCase):
             netloc = '%s%s' % (netloc, self.prefix)
         return message.replace('$NETLOC', netloc)
 
-    def _parse_url(self, url, ssl=False):
+    def _parse_url(self, url):
         """Create a url from test data.
 
         If provided with a full URL, just return that. If SSL is requested
@@ -258,56 +249,31 @@ class HTTPTestCase(unittest.TestCase):
 
         Scheme and netloc are saved for later use in comparisons.
         """
-        parsed_url = urlparse.urlsplit(url)
-        scheme = 'http'
-        netloc = self.host
         query_params = self.test_data['query_parameters']
+        ssl = self.test_data['ssl']
 
+        parsed_url = urlparse.urlsplit(url)
         if not parsed_url.scheme:
-            if (self.port
-                    and not (int(self.port) == 443 and ssl)
-                    and not (int(self.port) == 80 and not ssl)):
-                netloc = '%s:%s' % (self.host, self.port)
+            full_url = utils.create_url(url, self.host, port=self.port,
+                                        prefix=self.prefix, ssl=ssl)
+            # parse again to set updated netloc and scheme
+            parsed_url = urlparse.urlsplit(full_url)
 
-            if ssl:
-                scheme = 'https'
+        self.scheme = parsed_url.scheme
+        self.netloc = parsed_url.netloc
 
-            path = parsed_url[2]
-            if self.prefix:
-                path = '%s%s' % (self.prefix, path)
-
-            if query_params:
-                encoded_query_params = {}
-                for param, value in query_params.items():
-                    # isinstance used because we can iter a string
-                    if isinstance(value, list):
-                        encoded_query_params[param] = [
-                            self._clean_query_value(subvalue)
-                            for subvalue in value]
-                    else:
-                        encoded_query_params[param] = (
-                            self._clean_query_value(value))
-
-                query_string = urlparse.urlencode(
-                    encoded_query_params, doseq=True)
-                if parsed_url.query:
-                    query_string = '&'.join([parsed_url.query, query_string])
-            else:
-                query_string = parsed_url.query
-
-            full_url = urlparse.urlunsplit((scheme, netloc, path,
-                                            query_string, ''))
-            self.scheme = scheme
-            self.netloc = netloc
+        if query_params:
+            query_string = self._update_query_params(parsed_url.query,
+                                                     query_params)
         else:
-            full_url = url
-            self.scheme = parsed_url.scheme
-            self.netloc = parsed_url[1]
+            query_string = parsed_url.query
 
-        return full_url
+        return urlparse.urlunsplit((parsed_url.scheme, parsed_url.netloc,
+                                    parsed_url.path, query_string, ''))
 
     @staticmethod
     def _replacer_regex(key):
+        """Compose a regular expression for test template variables."""
         return r"\$%s\[(?P<quote>['\"])(?P<arg>.+?)(?P=quote)\]" % key
 
     def _response_replace(self, message):
@@ -359,7 +325,7 @@ class HTTPTestCase(unittest.TestCase):
         test = self.test_data
 
         base_url = self.replace_template(test['url'])
-        full_url = self._parse_url(base_url, test['ssl'])
+        full_url = self._parse_url(base_url)
 
         method = test['method'].upper()
         headers = test['request_headers']
@@ -437,7 +403,37 @@ class HTTPTestCase(unittest.TestCase):
 
         self.assert_in_or_print_output(observed_status, statii)
 
+    def _update_query_params(self, original_query_string, query_params):
+        """Update a query string from query_params dict.
+
+        An OrderedDict is used to allow easier testing and greater
+        predictability when doing query updates.
+        """
+        encoded_query_params = OrderedDict()
+
+        for param, value in query_params.items():
+            # isinstance used because we can iter a string
+            if isinstance(value, list):
+                encoded_query_params[param] = [
+                    self._clean_query_value(subvalue)
+                    for subvalue in value]
+            else:
+                encoded_query_params[param] = (
+                    self._clean_query_value(value))
+
+        query_string = urlparse.urlencode(
+            encoded_query_params, doseq=True)
+        if original_query_string:
+            query_string = '&'.join([original_query_string, query_string])
+
+        return query_string
+
     def assert_in_or_print_output(self, expected, iterable):
+        """Assert the iterable contains expected or print some output.
+
+        If the output is long, it is limited by either GABBI_MAX_CHARS_OUTPUT
+        in the environment or the MAX_CHARS_OUTPUT constant.
+        """
         if utils.not_binary(self.content_type):
             if expected in iterable:
                 return
@@ -448,7 +444,7 @@ class HTTPTestCase(unittest.TestCase):
             else:
                 full_response = self.output
 
-            max_chars = os.getenv('GABBIT_MAX_CHARS_OUTPUT', MAX_CHARS_OUTPUT)
+            max_chars = os.getenv('GABBI_MAX_CHARS_OUTPUT', MAX_CHARS_OUTPUT)
             response = full_response[0:max_chars]
             is_truncated = (len(response) != len(full_response))
 
@@ -465,8 +461,3 @@ class HTTPTestCase(unittest.TestCase):
             self.fail(msg)
         else:
             self.assertIn(expected, iterable)
-
-
-class ServerError(Exception):
-    """A catchall ServerError."""
-    pass

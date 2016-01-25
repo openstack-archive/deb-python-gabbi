@@ -10,6 +10,18 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-"""See gabbi.driver and gabbbi.case."""
 
-__version__ = '1.12.0'
+from gabbi import handlers
+
+
+def gabbi_response_handlers():
+    return [CustomResponseHandler]
+
+
+class CustomResponseHandler(handlers.ResponseHandler):
+
+    test_key_suffix = 'custom'
+    test_key_value = []
+
+    def action(self, test, item, value=None):
+        test.assertTrue(item in test.output)

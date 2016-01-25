@@ -78,7 +78,21 @@ class SimpleWsgi(object):
                         query_data = body_data
             headers.append(('Location', full_request_url))
 
-        if path_info.startswith('/poller'):
+        if path_info == '/presenter':
+            start_response('200 OK', [('Content-Type', 'text/html')])
+            return [b"""<!DOCTYPE html>
+                    <html>
+                        <head>
+                            <meta charset="utf-8">
+                            <title>Hello World</title>
+                        </head>
+                        <body>
+                            <h1>Hello World</h1>
+                            <p>lorem ipsum dolor sit amet</p>
+                        </body>
+                    </html>
+                    """]
+        elif path_info.startswith('/poller'):
             if CURRENT_POLL == 0:
                 CURRENT_POLL = int(query_data.get('count', [5])[0])
                 start_response('400 Bad Reqest', [])
@@ -100,14 +114,14 @@ class SimpleWsgi(object):
     @staticmethod
     def _fully_qualify(environ, url):
         """Turn a URL path into a fully qualified URL."""
-        path, query, fragment = urlparse.urlsplit(url)[2:]
+        split_url = urlparse.urlsplit(url)
         server_name = environ.get('SERVER_NAME')
-        server_port = environ.get('SERVER_PORT')
+        server_port = str(environ.get('SERVER_PORT'))
         server_scheme = environ.get('wsgi.url_scheme')
         if server_port not in ['80', '443']:
             netloc = '%s:%s' % (server_name, server_port)
         else:
             netloc = server_name
 
-        return urlparse.urlunsplit((server_scheme, netloc, path,
-                                    query, fragment))
+        return urlparse.urlunsplit((server_scheme, netloc, split_url.path,
+                                    split_url.query, split_url.fragment))
