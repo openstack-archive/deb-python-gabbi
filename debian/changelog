@@ -4,6 +4,8 @@ python-gabbi (1.12.0-1) experimental; urgency=medium
   * Fixed (build-)depends for this release.
   * Added 50-no-external-site-css.patch.
   * Fixed debian/copyright ordering.
+  * Removed Pre-Depends: dpkg (>= 1.15.6~).
+  * Ran wrap-and-sort -t -a.
 
  -- Thomas Goirand <zigo@debian.org>  Mon, 25 Jan 2016 12:44:06 +0000
 

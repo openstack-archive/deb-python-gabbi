@@ -2,7 +2,7 @@ Source: python-gabbi
 Section: python
 Priority: optional
 Maintainer: PKG OpenStack <openstack-devel@lists.alioth.debian.org>
-Uploaders: Thomas Goirand <zigo@debian.org>
+Uploaders: Thomas Goirand <zigo@debian.org>,
 Build-Depends: debhelper (>= 9),
                dh-python,
                openstack-pkg-tools,
@@ -40,7 +40,6 @@ Homepage: https://github.com/cdent/gabbi
 
 Package: python-gabbi
 Architecture: all
-Pre-Depends: dpkg (>= 1.15.6~)
 Depends: python-colorama,
          python-httplib2,
          python-jsonpath-rw,
@@ -51,7 +50,7 @@ Depends: python-colorama,
          python-yaml,
          ${misc:Depends},
          ${python:Depends},
-Suggests: python-gabbi-doc
+Suggests: python-gabbi-doc,
 Description: declarative HTTP testing library - Python 2.x
  Gabbi is a tool for running HTTP tests where requests and responses are
  represented in a declarative form.
@@ -83,7 +82,6 @@ Description: declarative HTTP testing library - Python 2.x
 
 Package: python3-gabbi
 Architecture: all
-Pre-Depends: dpkg (>= 1.15.6~)
 Depends: python3-colorama,
          python3-httplib2,
          python3-jsonpath-rw,
@@ -94,7 +92,7 @@ Depends: python3-colorama,
          python3-yaml,
          ${misc:Depends},
          ${python3:Depends},
-Suggests: python-gabbi-doc
+Suggests: python-gabbi-doc,
 Description: declarative HTTP testing library - Python 3.x
  Gabbi is a tool for running HTTP tests where requests and responses are
  represented in a declarative form.
@@ -127,8 +125,8 @@ Description: declarative HTTP testing library - Python 3.x
 Package: python-gabbi-doc
 Section: doc
 Architecture: all
-Pre-Depends: dpkg (>= 1.15.6~)
-Depends: ${misc:Depends}, ${sphinxdoc:Depends}
+Depends: ${misc:Depends},
+         ${sphinxdoc:Depends},
 Description: declarative HTTP testing library - doc
  Gabbi is a tool for running HTTP tests where requests and responses are
  represented in a declarative form.
