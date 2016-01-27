@@ -1,0 +1,17 @@
+Description: No external site CSS
+ That's a privacy breach.
+Author: Thomas Goirand <zigo@debian.org>
+Forwarded: no
+Last-Update: 2016-01-27
+
+--- python-gabbi-1.12.0.orig/docs/source/conf.py
++++ python-gabbi-1.12.0/docs/source/conf.py
+@@ -104,8 +104,6 @@ pygments_style = 'sphinx'
+ html_theme = 'default'
+ 
+ html_context = {'css_files': [
+-    'https://media.readthedocs.org/css/sphinx_rtd_theme.css',
+-    'https://media.readthedocs.org/css/readthedocs-doc-embed.css',
+     '_static/theme_override.css',
+ ]}
+ 

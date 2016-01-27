@@ -3,13 +3,13 @@ Upstream-Name: gabbi
 Upstream-Contact: Chris Dent <cdent@peermore.com>
 Source: git://github.com/cdent/gabbi.git
 
-Files: debian/*
-Copyright: (c) 2014, Thomas Goirand <zigo@debian.org>
-License: Apache-2
-
 Files: *
 Copyright: (c) 2014-2015, Chris Dent <cdent@peermore.com>
            (c) 2014-2015, Red Hat
+License: Apache-2
+
+Files: debian/*
+Copyright: (c) 2014-2016, Thomas Goirand <zigo@debian.org>
 License: Apache-2
 
 License: Apache-2
