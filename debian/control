@@ -34,8 +34,8 @@ Build-Depends-Indep: python-colorama,
                      subunit,
                      testrepository,
 Standards-Version: 3.9.6
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/python-gabbi.git
-Vcs-Git: git://anonscm.debian.org/openstack/python-gabbi.git
+Vcs-Browser: https://anonscm.debian.org/cgit/openstack/python-gabbi.git/
+Vcs-Git: https://anonscm.debian.org/git/openstack/python-gabbi.git
 Homepage: https://github.com/cdent/gabbi
 
 Package: python-gabbi
