@@ -1,8 +1,12 @@
-python-gabbi (1.12.0-2) UNRELEASED; urgency=medium
+python-gabbi (1.12.0-2) unstable; urgency=medium
 
+  [ Ondřej Nový ]
   * Fixed VCS URLs (https).
 
- -- Ondřej Nový <novy@ondrej.org>  Sun, 28 Feb 2016 15:38:16 +0100
+  [ Thomas Goirand ]
+  * Uploading to unstable.
+
+ -- Thomas Goirand <zigo@debian.org>  Mon, 04 Apr 2016 17:18:01 +0000
 
 python-gabbi (1.12.0-1) experimental; urgency=medium
 
