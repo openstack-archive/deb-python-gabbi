@@ -1,7 +1,7 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: gabbi
 Upstream-Contact: Chris Dent <cdent@peermore.com>
-Source: git://github.com/cdent/gabbi.git
+Source: https://github.com/cdent/gabbi
 
 Files: *
 Copyright: (c) 2014-2015, Chris Dent <cdent@peermore.com>
