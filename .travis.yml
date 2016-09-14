@@ -8,16 +8,16 @@ script:
       - tox
 env:
       - TOXENV=py27
-      - TOXENV=py32
       - TOXENV=py33
       - TOXENV=py34
       - TOXENV=py35
       - TOXENV=pypy
-      - TOXENV=pypy3
       - TOXENV=pep8
       - TOXENV=py35-failskip
       - TOXENV=py35-limit
       - TOXENV=py35-prefix
+      - TOXENV=py27-pytest
+      - TOXENV=py35-pytest
 
 notifications:
       irc: "chat.freenode.net#gabbi"

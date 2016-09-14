@@ -1,41 +1,71 @@
-
 JSONPath
 ========
 
-Gabbi makes extensive use of JSONPath to provide a tool for
-validating response bodies that are formatted as JSON and making
-reference to that JSON in subsequent queries. `jsonpath_rw`_ is used
-to process the JSONPath expressions.
+Gabbi supports JSONPath both for validating JSON response bodies and within
+:ref:`substitutions <state-substitution>`.
 
-To address a common requirement when evaluting JSON responses, an
-extension has been made to the default implementation of JSONPath.
-This extension is ``len`` and will return the length of the current
-datum in the JSONPath expression.
+JSONPath expressions are provided by `jsonpath_rw`_, with
+`jsonpath_rw_ext`_ custom extensions to address common requirements:
 
-Here is a simple JSONPath example, including use of ``len``. Given JSON data
-as follows::
+#. Sorting via ``sorted`` and ``[/property]``.
+#. Filtering via ``[?property = value]``.
+#. Returning the respective length via ``len``.
+
+(These apply both to arrays and key-value pairs.)
+
+.. highlight:: json
+
+Here is a JSONPath example demonstrating some of these features. Given
+JSON data as follows::
 
     {
-        "alpha": ["one", "two"],
-        "beta": "hello"
+        "pets": [
+            {"type": "cat", "sound": "meow"},
+            {"type": "dog", "sound": "woof"}
+        ]
     }
 
-it is possible to get information about the values and length as
-follows::
+.. highlight:: yaml
+
+If the ordering of the list in ``pets`` is predictable and
+reliable it is relatively straightforward to test values::
 
     response_json_paths:
-        # the dict has two keys
-        $.`len`: 2
-        # The elements of the alpha list
-        $.alpha[0]: one
-        $.alpha.[1]: two
-        # the alpha list has two items
-        $.alpha.`len`: 2
-        # The string at beta is hello
-        $.beta: hello
-        # The string at beta has five chars
-        $.beta.`len`: 5
+        # length of list is two
+        $.pets.`len`: 2
+        # sound of second item in list is woof
+        $.pets[1].sound: woof
 
-There are more JSONPath examples in :doc:`example`.
+If the ordering is *not* predictable additional effort is required::
 
-.. _jsonpath_rw: http://jsonpath-rw.readthedocs.org/en/latest/
+    response_json_paths:
+        # sort by type
+        $.pets[/type][0].sound: meow
+        # sort by type, reversed
+        $.pets[\type][0].sound: woof
+        # all the sounds
+        $.pets[/type]..sound: ['meow', 'woof']
+        # filter by type = dog
+        $.pets[?type = "dog"].sound: woof
+
+If it is necessary to validate the entire JSON response use a
+JSONPath of ``$``::
+
+    response_json_paths:
+        $:
+            pets:
+                - type: cat
+                  sound: meow
+                - type: dog
+                  sound: woof
+
+This is not a technique that should be used frequently as it can
+lead to difficult to read tests and it also indicates that your
+gabbi tests are being used to test your serializers and data models,
+not just your API interactions.
+
+There are more JSONPath examples in :doc:`example` and in the
+`jsonpath_rw`_ and `jsonpath_rw_ext`_ documentation.
+
+.. _jsonpath_rw: http://jsonpath-rw.readthedocs.io/en/latest/
+.. _jsonpath_rw_ext: https://python-jsonpath-rw-ext.readthedocs.io/en/latest/

@@ -106,8 +106,18 @@ class JSONResponseHandler(ResponseHandler):
             raise AssertionError('json path %s cannot match %s' %
                                  (path, test.json_data))
         expected = test.replace_template(value)
-        test.assertEqual(expected, match, 'Unable to match %s as %s, got %s'
-                         % (path, expected, match))
+        # If expected is a string, check to see if it is a regex.
+        if (hasattr(expected, 'startswith') and expected.startswith('/')
+                and expected.endswith('/')):
+            expected = expected.strip('/').rstrip('/')
+            test.assertRegexpMatches(
+                match, expected,
+                'Expect jsonpath %s to match /%s/, got %s' %
+                (path, expected, match))
+        else:
+            test.assertEqual(expected, match,
+                             'Unable to match %s as %s, got %s' %
+                             (path, expected, match))
 
 
 class ForbiddenHeadersResponseHandler(ResponseHandler):
@@ -128,6 +138,8 @@ class HeadersResponseHandler(ResponseHandler):
 
     If a header value is wrapped in ``/`` it is treated as a raw
     regular expression.
+
+    Headers values are always treated as strings.
     """
 
     test_key_suffix = 'headers'
@@ -137,10 +149,10 @@ class HeadersResponseHandler(ResponseHandler):
         header = header.lower()  # case-insensitive comparison
 
         response = test.response
-        header_value = test.replace_template(value)
+        header_value = test.replace_template(str(value))
 
         try:
-            response_value = response[header]
+            response_value = str(response[header])
         except KeyError:
             raise AssertionError(
                 "'%s' header not present in response: %s" % (
@@ -153,6 +165,17 @@ class HeadersResponseHandler(ResponseHandler):
                 'Expect header %s to match /%s/, got %s' %
                 (header, header_value, response_value))
         else:
-            test.assertEqual(header_value, response[header],
+            test.assertEqual(header_value, response_value,
                              'Expect header %s with value %s, got %s' %
                              (header, header_value, response[header]))
+
+
+# A list of these handlers for easy traversal.
+# TODO(cdent): We could automate this, but meh.
+# When the content-handler changes are done this can be cleaned up.
+RESPONSE_HANDLERS = [
+    ForbiddenHeadersResponseHandler,
+    HeadersResponseHandler,
+    StringResponseHandler,
+    JSONResponseHandler,
+]

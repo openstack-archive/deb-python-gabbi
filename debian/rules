@@ -1,12 +1,7 @@
 #!/usr/bin/make -f
 
-PYTHONS:=$(shell pyversions -vr)
-PYTHON3S:=$(shell py3versions -vr)
-
 UPSTREAM_GIT := https://github.com/cdent/gabbi.git
 include /usr/share/openstack-pkg-tools/pkgos.make
-
-export OSLO_PACKAGE_VERSION=$(VERSION)
 
 UNIT_TEST_BLACKLIST = test_intercept_backref_post_.*_json.test_request.*|test_intercept_google_.*.test_request.*|test_intercept_regex_regex_test.test_reques.*|test_intercept_self_inheritance_of_defaults.test_request.*|test_intercept_self_bogus_method.test_request.*|test_intercept_self_simple_post.test_request.*|test_intercept_self_use_prior_location.test_request.*|test_intercept_self_get_ssl_page.test_request.*|test_live_google_.*.test_request.*|test_live_google_follow_redirects.test_request.*|test_intercept_self_get_location_from_headers.test_request.*|test_intercept_self_confirm_environ.test_request.*
 
@@ -16,18 +11,8 @@ export https_proxy=127.0.0.1:9
 %:
 	dh $@ --buildsystem=python_distutils --with python2,python3,sphinxdoc
 
-override_dh_install:
-	set -e ; for pyvers in $(PYTHONS); do \
-		python$$pyvers setup.py install --install-layout=deb \
-			--root $(CURDIR)/debian/python-gabbi; \
-	done
-	set -e ; for pyvers in $(PYTHON3S); do \
-		python$$pyvers setup.py install --install-layout=deb \
-			--root $(CURDIR)/debian/python3-gabbi; \
-	done
-	rm -rf $(CURDIR)/debian/python*-gabbi/usr/lib/python*/dist-packages/*.pth
-	mv $(CURDIR)/debian/python-gabbi/usr/bin/gabbi-run $(CURDIR)/debian/python-gabbi/usr/bin/python2-gabbi-run
-	mv $(CURDIR)/debian/python3-gabbi/usr/bin/gabbi-run $(CURDIR)/debian/python3-gabbi/usr/bin/python3-gabbi-run
+override_dh_auto_install:
+	pkgos-dh_auto_install
 
 #override_dh_auto_test:
 #ifeq (,$(findstring nocheck, $(DEB_BUILD_OPTIONS)))

@@ -13,8 +13,11 @@
 # under the License.
 """TestRunner and TestResult for gabbi-run."""
 
+from unittest import TestResult
 from unittest import TextTestResult
 from unittest import TextTestRunner
+
+import pytest
 
 from gabbi import utils
 
@@ -98,6 +101,28 @@ class ConciseTestResult(TextTestResult):
             message = str(err[1])
             for line in message.splitlines():
                 self.stream.writeln('\t%s' % line)
+
+
+class PyTestResult(TestResult):
+    """Wrap a test result to allow it to work with pytest.
+
+    The main behaviors here are:
+
+    * to turn what had been exceptions back into exceptions
+    * use pytest's skip and xfail methods
+    """
+
+    def addFailure(self, test, err):
+        raise err[1]
+
+    def addError(self, test, err):
+        raise err[1]
+
+    def addSkip(self, test, reason):
+        pytest.skip(reason)
+
+    def addExpectedFailure(self, test, err):
+        pytest.xfail('%s' % err[1])
 
 
 class ConciseTestRunner(TextTestRunner):

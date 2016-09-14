@@ -14,7 +14,7 @@
 
 The test case encapsulates the request headers and body and expected
 response headers and body. When the test is run an HTTP request is
-made using httplib2. Assertions are made against the reponse.
+made using urllib3. Assertions are made against the reponse.
 """
 
 from collections import OrderedDict
@@ -27,12 +27,15 @@ import sys
 import time
 import unittest
 from unittest import case
+from unittest import result
 
 import six
+from six.moves import http_cookies
 from six.moves.urllib import parse as urlparse
 import wsgi_intercept
 
 from gabbi import __version__
+from gabbi import exception
 from gabbi import json_parser
 from gabbi import utils
 
@@ -44,6 +47,8 @@ REPLACERS = [
     'NETLOC',
     'ENVIRON',
     'LOCATION',
+    'COOKIE',
+    'LAST_URL',
     'HEADERS',
     'RESPONSE',
 ]
@@ -129,7 +134,9 @@ class HTTPTestCase(unittest.TestCase):
             self.skipTest(self.test_data['skip'])
 
         if self.prior and not self.prior.has_run:
-            self.prior.run()
+            # Use a different result so we don't count this test
+            # in the results.
+            self.prior.run(result.TestResult())
         self._run_test()
 
     def replace_template(self, message):
@@ -194,15 +201,29 @@ class HTTPTestCase(unittest.TestCase):
     def extract_json_path_value(data, path):
         """Extract the value at JSON Path path from the data.
 
-        The input data is a Python datastructre, not a JSON string.
+        The input data is a Python datastructure, not a JSON string.
         """
         path_expr = json_parser.parse(path)
         matches = [match.value for match in path_expr.find(data)]
-        try:
-            return matches[0]
-        except IndexError:
+        if matches:
+            if len(matches) > 1:
+                return matches
+            else:
+                return matches[0]
+        else:
             raise ValueError(
                 "JSONPath '%s' failed to match on data: '%s'" % (path, data))
+
+    def _cookie_replace(self, message):
+        """Replace $COOKIE in a message.
+
+        With cookie data from set-cookie in the prior request.
+        """
+        response_cookies = self.prior.response['set-cookie']
+        cookies = http_cookies.SimpleCookie()
+        cookies.load(response_cookies)
+        cookie_string = cookies.output(attrs=[], header='', sep=',').strip()
+        return message.replace('$COOKIE', cookie_string)
 
     def _headers_replace(self, message):
         """Replace a header indicator in a message with that headers value from
@@ -220,6 +241,13 @@ class HTTPTestCase(unittest.TestCase):
         """Replace a regex match with the value of a JSON Path."""
         path = match.group('arg')
         return str(self.extract_json_path_value(self.prior.json_data, path))
+
+    def _last_url_replace(self, message):
+        """Replace $LAST_URL in a message.
+
+        With the URL used in the prior request.
+        """
+        return message.replace('$LAST_URL', self.prior.url)
 
     def _location_replace(self, message):
         """Replace $LOCATION in a message.
@@ -281,7 +309,7 @@ class HTTPTestCase(unittest.TestCase):
         return re.sub(self._replacer_regex('RESPONSE'),
                       self._json_replacer, message)
 
-    def _run_request(self, url, method, headers, body):
+    def _run_request(self, url, method, headers, body, redirect=False):
         """Run the http request and decode output.
 
         The call to make the request will catch a WSGIAppError from
@@ -290,14 +318,15 @@ class HTTPTestCase(unittest.TestCase):
         """
 
         if 'user-agent' not in (key.lower() for key in headers):
-            headers['user-agent'] = "gabbi/%s (Python httplib2)" % __version__
+            headers['user-agent'] = "gabbi/%s (Python urllib3)" % __version__
 
         try:
             response, content = self.http.request(
                 url,
                 method=method,
                 headers=headers,
-                body=body
+                body=body,
+                redirect=redirect
             )
         except wsgi_intercept.WSGIAppError as exc:
             # Extract and re-raise the wrapped exception.
@@ -325,23 +354,25 @@ class HTTPTestCase(unittest.TestCase):
         test = self.test_data
 
         base_url = self.replace_template(test['url'])
+        # Save the URL after replacers but before query_parameters
+        self.url = base_url
         full_url = self._parse_url(base_url)
 
         method = test['method'].upper()
         headers = test['request_headers']
         for name in headers:
-            headers[name] = self.replace_template(headers[name])
+            try:
+                headers[name] = self.replace_template(headers[name])
+            except TypeError as exc:
+                raise exception.GabbiFormatError(
+                    'malformed headers in test %s: %s' % (test['name'], exc))
 
-        if test['data']:
+        if test['data'] is not '':
             body = self._test_data_to_string(
-                test['data'], headers.get('content-type', ''))
+                test['data'],
+                utils.extract_content_type(headers, default='')[0])
         else:
             body = ''
-
-        # Reset follow_redirects with every go.
-        self.http.follow_redirects = False
-        if test['redirects']:
-            self.http.follow_redirects = True
 
         if test['poll']:
             count = test['poll'].get('count', 1)
@@ -349,7 +380,8 @@ class HTTPTestCase(unittest.TestCase):
             failure = None
             while count:
                 try:
-                    self._run_request(full_url, method, headers, body)
+                    self._run_request(full_url, method, headers, body,
+                                      redirect=test['redirects'])
                     self._assert_response()
                     failure = None
                     break
@@ -362,7 +394,8 @@ class HTTPTestCase(unittest.TestCase):
             if failure:
                 raise failure
         else:
-            self._run_request(full_url, method, headers, body)
+            self._run_request(full_url, method, headers, body,
+                              redirect=test['redirects'])
             self._assert_response()
 
     def _scheme_replace(self, message):
@@ -434,7 +467,7 @@ class HTTPTestCase(unittest.TestCase):
         If the output is long, it is limited by either GABBI_MAX_CHARS_OUTPUT
         in the environment or the MAX_CHARS_OUTPUT constant.
         """
-        if utils.not_binary(self.content_type):
+        if utils.not_binary(utils.parse_content_type(self.content_type)[0]):
             if expected in iterable:
                 return
 

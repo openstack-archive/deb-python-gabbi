@@ -10,17 +10,14 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-"""Keep one single global jsonpath parser."""
-
-from jsonpath_rw_ext import parser
+"""Gabbi specific exceptions."""
 
 
-PARSER = None
+class GabbiFormatError(ValueError):
+    """An exception to encapsulate poorly formed test data."""
+    pass
 
 
-def parse(path):
-    """Parse a JSONPath expression use the global parser."""
-    global PARSER
-    if not PARSER:
-        PARSER = parser.ExtentedJsonPathParser()
-    return PARSER.parse(path)
+class GabbiSyntaxWarning(SyntaxWarning):
+    """A warning about syntax that is not desirable."""
+    pass

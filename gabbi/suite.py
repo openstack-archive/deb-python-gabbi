@@ -16,15 +16,19 @@ This suite has two features: the contained tests are ordered and there
 are suite-level fixtures that operate as context managers.
 """
 
-from unittest import case
-from unittest import suite
+import unittest
 
 from wsgi_intercept import interceptor
 
 from gabbi import fixture
 
 
-class GabbiSuite(suite.TestSuite):
+def noop(*args):
+    """A noop method used to disable collected tests."""
+    pass
+
+
+class GabbiSuite(unittest.TestSuite):
     """A TestSuite with fixtures.
 
     The suite wraps the tests with a set of nested context managers that
@@ -41,10 +45,53 @@ class GabbiSuite(suite.TestSuite):
         are no fixtures.
         """
 
-        # If there are fixtures, nest in their context.
-        fixtures = [fixture.GabbiFixture]
-        intercept = None
+        fixtures, intercept, host, port, prefix = self._get_intercept()
 
+        try:
+            with fixture.nest([fix() for fix in fixtures]):
+                if intercept:
+                    with interceptor.Urllib3Interceptor(
+                            intercept, host, port, prefix):
+                        result = super(GabbiSuite, self).run(result, debug)
+                else:
+                    result = super(GabbiSuite, self).run(result, debug)
+        except unittest.SkipTest as exc:
+            for test in self._tests:
+                result.addSkip(test, str(exc))
+
+        return result
+
+    def start(self, result):
+        """Start fixtures when using pytest."""
+        fixtures, intercept, host, port, prefix = self._get_intercept()
+
+        self.used_fixtures = []
+        try:
+            for fix in fixtures:
+                fix_object = fix()
+                fix_object.__enter__()
+                self.used_fixtures.append(fix_object)
+        except unittest.SkipTest as exc:
+            # Disable the already collected tests that we now wish
+            # to skip.
+            for test in self:
+                test.run = noop
+                result.addSkip(test, str(exc))
+            result.addSkip(self, str(exc))
+        if intercept:
+            intercept_fixture = interceptor.Urllib3Interceptor(
+                intercept, host, port, prefix)
+            intercept_fixture.__enter__()
+            self.used_fixtures.append(intercept_fixture)
+
+    def stop(self):
+        """Stop fixtures when using pytest."""
+        for fix in reversed(self.used_fixtures):
+            fix.__exit__(None, None, None)
+
+    def _get_intercept(self):
+        fixtures = [fixture.GabbiFixture]
+        intercept = host = port = prefix = None
         try:
             first_test = self._find_first_full_test()
             fixtures = first_test.fixtures
@@ -62,19 +109,7 @@ class GabbiSuite(suite.TestSuite):
         except AttributeError:
             pass
 
-        try:
-            with fixture.nest([fix() for fix in fixtures]):
-                if intercept:
-                    with interceptor.Httplib2Interceptor(
-                            intercept, host, port, prefix):
-                        result = super(GabbiSuite, self).run(result, debug)
-                else:
-                    result = super(GabbiSuite, self).run(result, debug)
-        except case.SkipTest as exc:
-            for test in self._tests:
-                result.addSkip(test, str(exc))
-
-        return result
+        return fixtures, intercept, host, port, prefix
 
     def _find_first_full_test(self):
         """Traverse a sparse test suite to find the first HTTPTestCase.

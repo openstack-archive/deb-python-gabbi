@@ -12,10 +12,10 @@
 # under the License.
 """Utility functions grab bag."""
 
+import io
 import os
 
-import colorama
-from six.moves.urllib import parse as urlparse
+import yaml
 
 
 try:  # Python 3
@@ -25,13 +25,24 @@ except NameError:  # Python 2
     ConnectionRefused = socket.error
 
 
+import colorama
+from six.moves.urllib import parse as urlparse
+
+
 def create_url(base_url, host, port=None, prefix='', ssl=False):
     """Given pieces of a path-based url, return a fully qualified url."""
     scheme = 'http'
-    netloc = host
+
+    # A host with : in it at this stage is assumed to be an IPv6
+    # address of some kind (they come in many forms). Port should
+    # already have been stripped off.
+    if ':' in host and not (host.startswith('[') and host.endswith(']')):
+        host = '[%s]' % host
 
     if port and not _port_follows_standard(port, ssl):
         netloc = '%s:%s' % (host, port)
+    else:
+        netloc = host
 
     if ssl:
         scheme = 'https'
@@ -57,11 +68,52 @@ def decode_response_content(header_dict, content):
         return content
 
 
-def extract_content_type(header_dict):
-    """Extract content-type from headers."""
+def extract_content_type(header_dict, default='application/binary'):
+    """Extract parsed content-type from headers."""
     content_type = header_dict.get('content-type',
-                                   'application/binary').strip().lower()
-    charset = 'utf-8'
+                                   default).strip().lower()
+    return parse_content_type(content_type)
+
+
+def get_colorizer(stream):
+    """Return a function to colorize a string.
+
+    Only if stream is a tty .
+    """
+    if stream.isatty() or os.environ.get('GABBI_FORCE_COLOR', False):
+        colorama.init()
+        return _colorize
+    else:
+        return lambda x, y: y
+
+
+def load_yaml(handle=None, yaml_file=None):
+    """Read and parse any YAML file or filehandle.
+
+    Let exceptions flow where they may.
+
+    If no file or handle is provided, read from STDIN.
+    """
+    if yaml_file:
+        with io.open(yaml_file, encoding='utf-8') as source:
+            return yaml.safe_load(source.read())
+
+    # This will intentionally raise AttributeError if handle is None.
+    return yaml.safe_load(handle.read())
+
+
+def not_binary(content_type):
+    """Decide if something is content we'd like to treat as a string."""
+    return (content_type.startswith('text/') or
+            content_type.endswith('+xml') or
+            content_type.endswith('+json') or
+            content_type == 'application/javascript' or
+            content_type.startswith('application/json'))
+
+
+def parse_content_type(content_type, default_charset='utf-8'):
+    """Parse content type value for media type and charset."""
+    charset = default_charset
     if ';' in content_type:
         content_type, parameter_strings = (attr.strip() for attr
                                            in content_type.split(';', 1))
@@ -79,25 +131,29 @@ def extract_content_type(header_dict):
     return (content_type, charset)
 
 
-def get_colorizer(stream):
-    """Return a function to colorize a string.
+def host_info_from_target(target, prefix=None):
+    """Turn url or host:port and target into test destination."""
+    force_ssl = False
+    split_url = urlparse.urlparse(target)
 
-    Only if stream is a tty .
-    """
-    if stream.isatty() or os.environ.get('GABBI_FORCE_COLOR', False):
-        colorama.init()
-        return _colorize
+    if split_url.scheme:
+        if split_url.scheme == 'https':
+            force_ssl = True
+        return split_url.hostname, split_url.port, split_url.path, force_ssl
     else:
-        return lambda x, y: y
+        target = target
+        prefix = prefix
 
+    if ':' in target and '[' not in target:
+        host, port = target.rsplit(':', 1)
+    elif ']:' in target:
+        host, port = target.rsplit(':', 1)
+    else:
+        host = target
+        port = None
+    host = host.replace('[', '').replace(']', '')
 
-def not_binary(content_type):
-    """Decide if something is content we'd like to treat as a string."""
-    return (content_type.startswith('text/') or
-            content_type.endswith('+xml') or
-            content_type.endswith('+json') or
-            content_type == 'application/javascript' or
-            content_type.startswith('application/json'))
+    return host, port, prefix, force_ssl
 
 
 def _colorize(color, message):

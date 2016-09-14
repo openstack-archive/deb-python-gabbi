@@ -13,17 +13,15 @@
 """Implementation of a command-line runner of single gabbi files."""
 
 import argparse
+from importlib import import_module
 import sys
 import unittest
-import yaml
-
-from importlib import import_module
-
-from six.moves.urllib import parse as urlparse
 
 from gabbi import case
-from gabbi import driver
+from gabbi import handlers
 from gabbi.reporter import ConciseTestRunner
+from gabbi import suitemaker
+from gabbi import utils
 
 
 def run():
@@ -68,7 +66,9 @@ def run():
         'target',
         nargs='?', default='stub',
         help='A fully qualified URL (with optional path as prefix) '
-             'to the primary target or a host and port, : separated'
+             'to the primary target or a host and port, : separated. '
+             'If using an IPV6 address for the host in either form, '
+             'wrap it in \'[\' and \']\'.'
     )
     parser.add_argument(
         'prefix',
@@ -89,37 +89,35 @@ def run():
         help='Custom response handler. Should be an import path of the '
              'form package.module or package.module:class.'
     )
+
     args = parser.parse_args()
-
-    split_url = urlparse.urlsplit(args.target)
-    if split_url.scheme:
-        target = split_url.netloc
-        prefix = split_url.path
-    else:
-        target = args.target
-        prefix = args.prefix
-
-    if ':' in target:
-        host, port = target.split(':')
-    else:
-        host = target
-        port = None
+    host, port, prefix, force_ssl = utils.host_info_from_target(
+        args.target, args.prefix)
 
     # Initialize response handlers.
+    initialize_handlers(args.response_handlers)
+
+    data = utils.load_yaml(handle=sys.stdin)
+    if force_ssl:
+        if 'defaults' in data:
+            data['defaults']['ssl'] = True
+        else:
+            data['defaults'] = {'ssl': True}
+    loader = unittest.defaultTestLoader
+    test_suite = suitemaker.test_suite_from_dict(
+        loader, 'input', data, '.', host, port, None, None, prefix=prefix)
+    result = ConciseTestRunner(
+        verbosity=2, failfast=args.failfast).run(test_suite)
+    sys.exit(not result.wasSuccessful())
+
+
+def initialize_handlers(response_handlers):
     custom_response_handlers = []
-    for import_path in (args.response_handlers or []):
+    for import_path in response_handlers or []:
         for handler in load_response_handlers(import_path):
             custom_response_handlers.append(handler)
-    for handler in driver.RESPONSE_HANDLERS + custom_response_handlers:
+    for handler in handlers.RESPONSE_HANDLERS + custom_response_handlers:
         handler(case.HTTPTestCase)
-
-    data = yaml.safe_load(sys.stdin.read())
-    loader = unittest.defaultTestLoader
-    suite = driver.test_suite_from_dict(loader, 'input', data, '.',
-                                        host, port, None, None,
-                                        prefix=prefix)
-    result = ConciseTestRunner(verbosity=2, failfast=args.failfast).run(suite)
-    sys.exit(not result.wasSuccessful())
 
 
 def load_response_handlers(import_path):

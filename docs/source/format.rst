@@ -24,6 +24,8 @@ Test Structure
 The top-level ``tests`` category contains an ordered sequence of test
 declarations, each describing the expected response to a given request:
 
+.. _metadata:
+
 Metadata
 ********
 
@@ -58,6 +60,8 @@ the respective test's ``name``, lowercased with spaces transformed to ``_``. In
 at least some test runners this will allow you to select and filter on test
 name.
 
+.. _request-parameters:
+
 Request Parameters
 ******************
 
@@ -87,7 +91,7 @@ Request Parameters
                          full path (e.g. "/index") or a fully
                          qualified URL (i.e. including host and
                          scheme, e.g.
-                         "http://example.org/index") - see
+                         "http://example.org/index") — see
                          :doc:`host` for details.
 
    ``request_headers``   A dictionary of key-value pairs
@@ -105,7 +109,7 @@ Request Parameters
 
    ``data``              A representation to pass as the body of
                          a request. Note that ``content-type`` in
-                         ``request_headers`` should also be set -
+                         ``request_headers`` should also be set —
                          see `Data`_ for details.
 
    ``redirects``         If ``True``, redirects will               defaults to
@@ -113,9 +117,11 @@ Request Parameters
 
    ``ssl``               Determines whether the request uses SSL   defaults to
                          (i.e. HTTPS). Note that the ``url``'s     ``False``
-                         scheme takes precedence if present - see
+                         scheme takes precedence if present — see
                          :doc:`host` for details.
    ====================  ========================================  ============
+
+.. _response-expectations:
 
 Response Expectations
 *********************
@@ -128,7 +134,7 @@ Response Expectations
    ``status``                      The expected response status code.     defaults to
                                    Multiple acceptable response codes     ``200``
                                    may be provided, separated by ``||``
-                                   (e.g. ``302 || 301`` - note, however,
+                                   (e.g. ``302 || 301`` — note, however,
                                    that this indicates ambiguity, which
                                    is generally undesirable).
 
@@ -151,6 +157,11 @@ Response Expectations
                                    content type of ``application/json``
                                    or containing ``+json``)
 
+                                   If the value is wrapped in ``/.../``
+                                   the result of the JSONPath query
+                                   will be compared against the
+                                   value as a regular expression.
+
    ``poll``                        A dictionary of two keys:
 
                                    * ``count``: An integer stating the
@@ -158,14 +169,14 @@ Response Expectations
                                      test before giving up.
                                    * ``delay``: A floating point number
                                      of seconds to delay between
-                                     attemmpts.
+                                     attempts.
 
                                    This makes it possible to poll for a
                                    resource created via an asynchronous
                                    request. Use with caution.
    ==============================  =====================================  ============
 
-Note that many of these items allow substitutions (explained below).
+Note that many of these items allow :ref:`substitutions <state-substitution>`.
 
 Default values for a file's ``tests`` may be provided via the top-level
 ``defaults`` category. These take precedence over the global defaults
@@ -194,6 +205,8 @@ created by test authors for specific use cases. See :doc:`handlers` for more
 information.
 
 
+.. _state-substitution:
+
 Substitution
 ------------
 
@@ -209,6 +222,11 @@ processed in the order given.
   string value of the environment variable is ``"True"`` or
   ``"False"`` then the resulting value will be the corresponding
   boolean, not a string.
+* ``$COOKIE``: All the cookies set by any ``Set-Cookie`` headers in
+  the prior response, including only the cookie key and value pairs
+  and no metadata (e.g. ``expires`` or ``domain``).
+* ``$LAST_URL``: The URL defined in the prior request, after
+  substitutions have been made.
 * ``$LOCATION``: The location header returned in the prior response.
 * ``$HEADERS['<header>']``: The value of any header from the
   prior response.

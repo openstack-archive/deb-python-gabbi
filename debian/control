@@ -5,7 +5,7 @@ Maintainer: PKG OpenStack <openstack-devel@lists.alioth.debian.org>
 Uploaders: Thomas Goirand <zigo@debian.org>,
 Build-Depends: debhelper (>= 9),
                dh-python,
-               openstack-pkg-tools,
+               openstack-pkg-tools (>= 52~),
                python-all,
                python-pbr,
                python-setuptools,
@@ -34,8 +34,8 @@ Build-Depends-Indep: python-colorama,
                      subunit,
                      testrepository,
 Standards-Version: 3.9.8
-Vcs-Browser: https://anonscm.debian.org/cgit/openstack/python-gabbi.git/
-Vcs-Git: https://anonscm.debian.org/git/openstack/python-gabbi.git
+Vcs-Browser: https://git.openstack.org/cgit/openstack/deb-python-gabbi
+Vcs-Git: https://git.openstack.org/openstack/deb-python-gabbi
 Homepage: https://github.com/cdent/gabbi
 
 Package: python-gabbi
