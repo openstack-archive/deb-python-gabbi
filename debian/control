@@ -34,8 +34,8 @@ Build-Depends-Indep: python-colorama,
                      subunit,
                      testrepository,
 Standards-Version: 3.9.8
-Vcs-Browser: https://git.openstack.org/cgit/openstack/deb-python-gabbi
-Vcs-Git: https://git.openstack.org/openstack/deb-python-gabbi
+Vcs-Browser: https://git.openstack.org/cgit/openstack/deb-python-gabbi?h=debian%2Fnewton
+Vcs-Git: https://git.openstack.org/openstack/deb-python-gabbi -b debian/newton
 Homepage: https://github.com/cdent/gabbi
 
 Package: python-gabbi
