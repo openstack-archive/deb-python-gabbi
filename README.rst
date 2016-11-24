@@ -1,3 +1,12 @@
+========================
+Team and repository tags
+========================
+
+.. image:: http://governance.openstack.org/badges/deb-python-gabbi.svg
+    :target: http://governance.openstack.org/reference/tags/index.html
+
+.. Change things from this point on
+
 .. image:: https://travis-ci.org/cdent/gabbi.svg?branch=master
     :target: https://travis-ci.org/cdent/gabbi
 .. image:: https://readthedocs.org/projects/gabbi/badge/?version=latest
